@@ -22,6 +22,7 @@ try:
     from device_detector import DeviceDetector
     from help_system import HelpSystem
     from chip_database import ChipDatabase
+    from chip_placement_guide import ChipPlacementGuide
 except ImportError as e:
     print(f"Error importing modules: {e}")
     print("Please ensure all required files are in the same directory.")
@@ -273,9 +274,17 @@ class PicProgrammerGUI:
         ttk.Button(parent, text=self.tr("dump_memory"), command=self.dump_memory, width=20).pack(pady=20)
         
     def setup_info_tab(self, parent):
+        # Create horizontal layout
+        main_frame = ttk.Frame(parent)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # Left side - Chip info
+        left_frame = ttk.Frame(main_frame)
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
         # Chip selection for info
-        sel_frame = ttk.LabelFrame(parent, text="Chip Selection", padding=10)
-        sel_frame.pack(fill=tk.X, padx=10, pady=5)
+        sel_frame = ttk.LabelFrame(left_frame, text="Chip Selection", padding=10)
+        sel_frame.pack(fill=tk.X, pady=(0, 5))
         
         ttk.Label(sel_frame, text="Select Chip:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         
@@ -286,14 +295,15 @@ class PicProgrammerGUI:
         self.info_chip_var = tk.StringVar()
         self.info_chip_combo = ttk.Combobox(info_chip_frame, textvariable=self.info_chip_var, width=20)
         self.info_chip_combo.grid(row=0, column=0, padx=(0, 10))
+        self.info_chip_combo.bind('<<ComboboxSelected>>', self.on_info_chip_selected)
         
         ttk.Button(info_chip_frame, text=self.tr("get_chip_info"), command=self.get_chip_info).grid(row=0, column=1)
         
         sel_frame.columnconfigure(1, weight=1)
         
         # Chip info display
-        info_display_frame = ttk.LabelFrame(parent, text=self.tr("chip_information"), padding=10)
-        info_display_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        info_display_frame = ttk.LabelFrame(left_frame, text=self.tr("chip_information"), padding=10)
+        info_display_frame.pack(fill=tk.BOTH, expand=True)
         
         # Info text area with scrollbar
         text_frame = ttk.Frame(info_display_frame)
@@ -305,6 +315,20 @@ class PicProgrammerGUI:
         
         self.info_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         info_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Right side - Chip placement guide
+        right_frame = ttk.Frame(main_frame)
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(5, 0))
+        
+        # Initialize chip placement guide
+        self.chip_guide = ChipPlacementGuide(right_frame)
+        self.chip_guide.get_frame().pack(fill=tk.BOTH, expand=True)
+    
+    def on_info_chip_selected(self, event=None):
+        """Handle chip selection in info tab"""
+        selected_chip = self.info_chip_var.get()
+        if selected_chip and hasattr(self, 'chip_guide'):
+            self.chip_guide.update_chip_guide(selected_chip)
         
     def refresh_ports(self):
         """Refresh available serial ports"""

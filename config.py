@@ -62,6 +62,10 @@ class Config:
         except IOError:
             pass  # Fail silently
     
+    def save(self):
+        """Alias for save_config() for backward compatibility"""
+        self.save_config()
+    
     def get(self, key, default=None):
         """Get configuration value"""
         return self.config.get(key, default)

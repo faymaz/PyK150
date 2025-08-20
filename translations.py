@@ -246,7 +246,20 @@ TRANSLATIONS = {
         # Version warnings
         "version_warning_title": "Picpro Version Warning",
         "version_too_old": "Picpro version too old",
-        "minimum_version_required": "Minimum version 0.3.0 required"
+        "minimum_version_required": "Minimum version 0.3.0 required",
+        
+        # Chip placement guide
+        "chip_placement_guide": "Chip Placement Guide",
+        "select_chip_for_guide": "Select a chip to see placement guide",
+        "place_chip_pin1": "Place {chip} with Pin 1 at top-left corner",
+        "chip_guide_not_available": "Chip guide for {chip} not available",
+        "zif_socket": "K150 ZIF Socket",
+        "pin_1": "Pin 1",
+        "placement_instructions": "Placement Instructions:",
+        "open_zif_lever": "1. Open ZIF socket lever",
+        "insert_chip_notch": "2. Insert chip with notch at top",
+        "pin1_top_left": "3. Pin 1 goes to top-left",
+        "close_lever": "4. Close lever to secure chip"
     },
     "de": {
         # Main window
