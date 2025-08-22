@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-PyK150 - PIC Programmer GUI
-A modern graphical interface for programming PIC microcontrollers
+PyK150 - Cross-platform PIC programmer GUI
+A modern GUI for K150 compatible PIC programmers using picpro backend
 """
+
+from version import __version__, get_version_info
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
@@ -48,7 +50,7 @@ class PicProgrammerGUI:
         self.chip_db = ChipDatabase()
         self.chip_db_loaded = False
         
-        self.root.title(self.tr("title"))
+        self.root.title(f"PyK150 v{__version__} - PIC Programmer GUI")
         geometry = self.config.get("window_geometry", "800x600")
         self.root.geometry(geometry)
         self.root.minsize(600, 500)
@@ -557,16 +559,24 @@ class PicProgrammerGUI:
                 if result.stderr:
                     self.log_message(f"Error: {result.stderr}")
                     
-                if result.returncode == 0:
+                # Check for actual operation success by analyzing output content
+                operation_success = self._check_operation_success(operation, result)
+                
+                if result.returncode == 0 and operation_success:
                     self.log_message(f"{operation.capitalize()} completed successfully!")
                     self.update_status(f"{operation.capitalize()} completed")
                     messagebox.showinfo(self.tr("success"), self.tr("operation_completed"))
                     # Save successful settings
                     self.save_current_settings()
                 else:
-                    self.log_message(f"{operation.capitalize()} failed with return code {result.returncode}")
-                    self.update_status(f"{operation.capitalize()} failed")
-                    messagebox.showerror(self.tr("error"), self.tr("operation_failed"))
+                    if result.returncode == 0 and not operation_success:
+                        self.log_message(f"{operation.capitalize()} completed with errors (see output above)")
+                        self.update_status(f"{operation.capitalize()} failed")
+                        messagebox.showerror(self.tr("error"), self.tr("operation_failed"))
+                    else:
+                        self.log_message(f"{operation.capitalize()} failed with return code {result.returncode}")
+                        self.update_status(f"{operation.capitalize()} failed")
+                        messagebox.showerror(self.tr("error"), self.tr("operation_failed"))
                     
             except subprocess.TimeoutExpired:
                 self.log_message(f"{operation.capitalize()} timed out")
@@ -586,10 +596,62 @@ class PicProgrammerGUI:
         thread = threading.Thread(target=run)
         thread.daemon = True
         thread.start()
+    
+    def _check_operation_success(self, operation, result):
+        """Check if operation actually succeeded by analyzing output content"""
+        output = result.stdout.lower() if result.stdout else ""
+        
+        # Common failure indicators
+        failure_indicators = [
+            "failed", "error", "verification failed", "programming failed",
+            "unable to", "timeout", "not found", "invalid", "locked"
+        ]
+        
+        # Operation-specific success indicators
+        success_indicators = {
+            "program": ["programming rom", "done!"],
+            "verify": ["verifying rom", "verification successful"],
+            "erase": ["erasing", "done!"],
+            "dump": ["dumping", "saved to"]
+        }
+        
+        # Check for failure indicators first
+        for indicator in failure_indicators:
+            if indicator in output:
+                return False
+        
+        # Check for operation-specific success
+        if operation in success_indicators:
+            required_indicators = success_indicators[operation]
+            for indicator in required_indicators:
+                if indicator in output:
+                    # For verify operation, also check that no verification failed
+                    if operation == "verify" and "verification failed" in output:
+                        return False
+                    return True
+        
+        # Default: if no specific indicators found, trust return code
+        return result.returncode == 0
         
     def program_chip(self):
         """Program the chip"""
         if self.validate_inputs("program"):
+            # Validate HEX file size before programming
+            hex_file = self.hex_file_path.get()
+            chip_type = self.selected_pic_type.get()
+            
+            if hex_file and chip_type:
+                is_valid, message = self.chip_db.validate_hex_file_size(hex_file, chip_type)
+                if not is_valid:
+                    messagebox.showerror(
+                        self.tr("error"),
+                        f"{self.tr('hex_file_too_large')}\n\n{message}"
+                    )
+                    self.log_message(f"HEX file validation failed: {message}")
+                    return
+                else:
+                    self.log_message(f"HEX file validation: {message}")
+            
             cmd = self.build_command("program")
             self.run_command_async(cmd, "program")
             

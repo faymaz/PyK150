@@ -162,6 +162,91 @@ class ChipDatabase:
             if chip['name'].upper() == chip_name.upper():
                 return chip
         return None
+    
+    def get_chip_rom_size(self, chip_name):
+        """Get ROM size in words for a specific chip"""
+        chip_info = self.get_chip_info(chip_name)
+        if chip_info:
+            # Try different possible ROM size field names
+            for field in ['ROMSIZE', 'ROMsize', 'romsize']:
+                if field in chip_info:
+                    try:
+                        rom_size_str = chip_info[field]
+                        # Handle hexadecimal format (like '001000')
+                        if rom_size_str.isdigit():
+                            return int(rom_size_str, 16)  # Parse as hex
+                        else:
+                            return int(rom_size_str)
+                    except ValueError:
+                        continue
+        
+        # Fallback: hardcoded ROM sizes for common chips
+        rom_sizes = {
+            '16F690': 4096,
+            '16F84A': 1024,
+            '16F628A': 2048,
+            '16F877A': 8192,
+            '12F675': 1024,
+            '12F683': 2048,
+            '18F2550': 16384,
+            '18F4550': 16384,
+            '10F200': 256,
+            '10F202': 512,
+        }
+        
+        chip_upper = chip_name.upper()
+        if chip_upper in rom_sizes:
+            return rom_sizes[chip_upper]
+            
+        return None
+    
+    def validate_hex_file_size(self, hex_file_path, chip_name):
+        """Validate if HEX file fits in chip ROM"""
+        try:
+            rom_size = self.get_chip_rom_size(chip_name)
+            if rom_size is None:
+                return True, f"Unknown ROM size for {chip_name}"
+            
+            # Parse HEX file to count program words
+            hex_data_size = self._parse_hex_file_size(hex_file_path)
+            if hex_data_size is None:
+                return True, "Could not parse HEX file"
+            
+            if hex_data_size > rom_size:
+                return False, f"HEX file too large: {hex_data_size} words > {rom_size} words ROM capacity"
+            else:
+                return True, f"HEX file size OK: {hex_data_size} words <= {rom_size} words ROM capacity"
+                
+        except Exception as e:
+            return True, f"Error validating HEX file: {str(e)}"
+    
+    def _parse_hex_file_size(self, hex_file_path):
+        """Parse Intel HEX file to determine program size in words"""
+        try:
+            max_address = 0
+            with open(hex_file_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line.startswith(':'):
+                        continue
+                    
+                    # Parse Intel HEX record
+                    byte_count = int(line[1:3], 16)
+                    address = int(line[3:7], 16)
+                    record_type = int(line[7:9], 16)
+                    
+                    # Only count data records (type 00)
+                    if record_type == 0 and byte_count > 0:
+                        # For PIC, each instruction is 14-bit stored in 2 bytes
+                        # Address is in bytes, convert to words
+                        word_address = address // 2
+                        word_count = byte_count // 2
+                        max_address = max(max_address, word_address + word_count)
+            
+            return max_address
+            
+        except Exception:
+            return None
         
     def get_popular_chips(self):
         """Get list of commonly used chips"""
