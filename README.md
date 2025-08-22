@@ -1,12 +1,14 @@
 # PyK150 v1.0.0-beta - PIC Programmer GUI
 
+![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=faymaz.PyK150)
+
 A modern cross-platform GUI for programming PIC microcontrollers using K150 compatible programmers.
 
 ## Features
 
 - **Visual Chip Placement Guide**: Interactive guide showing proper chip orientation
 - **HEX File Size Validation**: Prevents programming oversized files
-- **Multi-language Support**: English, Turkish, German
+- **Multi-language Support**: English, German, Turkish
 - **Auto Device Detection**: Automatic K150 programmer detection
 - **Complete PIC Database**: 198+ supported PIC microcontrollers
 - **ICSP Programming**: In-Circuit Serial Programming support
