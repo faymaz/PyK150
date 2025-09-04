@@ -1,3 +1,4 @@
 pyserial>=3.5
 requests>=2.25.0
 picpro>=0.3.0
+picp>=1.0.0

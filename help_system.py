@@ -55,7 +55,7 @@ Features:
         desc_label.pack(pady=10)
         
         # Credits
-        credits_label = ttk.Label(content_frame, text="Based on picpro by Salamek\nGUI developed for enhanced usability")
+        credits_label = ttk.Label(content_frame, text="Based on picpro by Salamek and picp by Faymaz\nGUI developed for enhanced usability")
         credits_label.pack(pady=10)
         
         # Close button
@@ -108,7 +108,7 @@ Features:
 2. SOFTWARE SETUP
    • Ensure Python 3.6+ is installed
    • Install required dependencies: pip install -r requirements.txt
-   • Install picpro: pip install picpro
+   • Install backend: pip install picpro OR pip install picp
 
 3. FIRST USE
    • Launch PyK150: python3 pyk150_gui.py
@@ -220,10 +220,11 @@ COMMON PROBLEMS:
    • Try different USB port
    • Check Device Manager (Windows) or lsusb (Linux)
 
-2. "picpro command not found"
-   • Install picpro: pip install picpro
+2. "Backend command not found"
+   • Install backend: pip install picpro OR pip install picp
    • Check Python PATH
    • Try: python -m pip install picpro
+   • Or: python -m pip install picp
 
 3. "Programming failed"
    • Check chip orientation in socket
@@ -259,7 +260,7 @@ HARDWARE CHECKS:
 SOFTWARE CHECKS:
 • Latest Python version
 • All dependencies installed
-• Correct picpro version
+• Correct backend version (picpro 0.3.0+ or picp 1.0.0+)
 • HEX file not corrupted
 • Sufficient disk space
 
@@ -308,7 +309,7 @@ Q: Can I use this with other programmers?
 A: This GUI is designed for K150/K128/K149/K182 series. Other programmers may not work.
 
 Q: Is this software free?
-A: Yes, PyK150 is open source. The underlying picpro library is also free.
+A: Yes, PyK150 is open source. Both picpro and picp backends are also free.
 
 Q: How do I update the programmer firmware?
 A: Check your programmer manufacturer's website for firmware updates and tools.

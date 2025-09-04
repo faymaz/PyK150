@@ -18,7 +18,7 @@ A modern cross-platform GUI for programming PIC microcontrollers using K150 comp
 
 - **K150** - Fully tested and supported
 - **K128/K149/K182** - Compatible models
-- Requires picpro 0.3.0+ backend
+- Supports both picpro 0.3.0+ and picp 1.0.0+ backends
 
 ## Installation
 
@@ -38,10 +38,22 @@ python3 install.py
 3. Load HEX file
 4. Click Program
 
+## Backend Selection
+
+PyK150 supports two backend engines:
+
+- **picpro** - Original backend by Salamek (https://github.com/Salamek/picpro)
+- **picp** - Enhanced backend with additional features (https://github.com/faymaz/picp)
+
+You can select your preferred backend in the Preferences dialog:
+- Go to Tools → Preferences → Backend tab
+- Choose between picpro, picp, or auto-detect
+- The application will automatically use the best available backend
+
 ## Requirements
 
 - Python 3.6+
-- picpro 0.3.0+
+- picpro 0.3.0+ OR picp 1.0.0+ (choose one)
 - pyserial
 
 ## License

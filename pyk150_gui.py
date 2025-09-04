@@ -66,8 +66,9 @@ class PicProgrammerGUI:
         # Auto-detection state
         self.auto_detection_active = False
         
-        # Picpro executable path
-        self.picpro_path = self.config.find_picpro_executable()
+        # Backend executable path
+        self.backend_path = self.config.get_backend_executable()
+        self.selected_backend = self.config.get("selected_backend", "picpro")
         
         # PIC types - will be loaded from database
         self.pic_types = []
@@ -84,6 +85,10 @@ class PicProgrammerGUI:
         if self.config.get("auto_detect_programmer", True):
             self.auto_detect_device()
             
+        # Auto-detect backend if enabled
+        if self.config.get("backend_auto_detect", True):
+            self.auto_detect_backend()
+            
         # Bind window close event to save configuration
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
@@ -93,8 +98,8 @@ class PicProgrammerGUI:
         # Load chip database in background
         self.load_chip_database()
         
-        # Check picpro version on startup
-        self.check_picpro_version_on_startup()
+        # Check backend version on startup
+        self.check_backend_version_on_startup()
         
     def setup_ui(self):
         # Main frame with toolbar
@@ -137,6 +142,11 @@ class PicProgrammerGUI:
         self.lang_var = tk.StringVar(value=self.tr.current_language.upper())
         lang_label = ttk.Label(status_frame, textvariable=self.lang_var, relief=tk.SUNKEN, width=5)
         lang_label.pack(side=tk.RIGHT)
+        
+        # Backend status indicator
+        self.backend_status_var = tk.StringVar(value=f"Backend: {self.selected_backend}")
+        backend_status = ttk.Label(status_frame, textvariable=self.backend_status_var, relief=tk.SUNKEN, width=15)
+        backend_status.pack(side=tk.RIGHT)
         
         # Device status indicator
         self.device_status_var = tk.StringVar(value="No device")
@@ -323,7 +333,7 @@ class PicProgrammerGUI:
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(5, 0))
         
         # Initialize chip placement guide
-        self.chip_guide = ChipPlacementGuide(right_frame)
+        self.chip_guide = ChipPlacementGuide(right_frame, self.backend_path, self.selected_backend)
         self.chip_guide.get_frame().pack(fill=tk.BOTH, expand=True)
     
     def on_info_chip_selected(self, event=None):
@@ -336,9 +346,18 @@ class PicProgrammerGUI:
         """Refresh available serial ports"""
         ports = [port.device for port in serial.tools.list_ports.comports()]
         self.port_combo['values'] = ports
-        if ports:
+        
+        # Auto-select /dev/ttyUSB0 if available
+        if "/dev/ttyUSB0" in ports:
+            self.selected_port.set("/dev/ttyUSB0")
+            self.log_message("Auto-selected /dev/ttyUSB0")
+        elif ports:
             self.selected_port.set(ports[0])
-        self.log_message(f"Found {len(ports)} serial ports")
+            self.log_message(f"Auto-selected first available port: {ports[0]}")
+        else:
+            self.log_message("No serial ports found")
+            
+        self.log_message(f"Found {len(ports)} serial ports: {', '.join(ports)}")
         
     def setup_menu(self):
         """Setup application menu"""
@@ -384,9 +403,17 @@ class PicProgrammerGUI:
         # Quick action buttons
         ttk.Button(toolbar, text=self.tr("auto_connect"), command=self.auto_detect_device).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(toolbar, text=self.tr("refresh"), command=self.refresh_ports).pack(side=tk.LEFT, padx=5)
+        ttk.Button(toolbar, text="Test Backend", command=self.test_current_backend).pack(side=tk.LEFT, padx=5)
         
         # Separator
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        
+        # Backend selector
+        ttk.Label(toolbar, text="Backend:").pack(side=tk.LEFT, padx=(0, 5))
+        backend_combo = ttk.Combobox(toolbar, values=["picpro", "picp", "auto"], width=8, state="readonly")
+        backend_combo.set(self.selected_backend)
+        backend_combo.bind('<<ComboboxSelected>>', lambda e: self.change_backend(backend_combo.get()))
+        backend_combo.pack(side=tk.LEFT, padx=(0, 10))
         
         # Language selector
         ttk.Label(toolbar, text="Lang:").pack(side=tk.LEFT, padx=(0, 5))
@@ -509,10 +536,10 @@ class PicProgrammerGUI:
             return False
         
     def build_command(self, operation):
-        """Build picpro command"""
-        # Use configured picpro path or fallback to 'picpro'
-        picpro_exe = self.picpro_path if self.picpro_path else "picpro"
-        cmd = [picpro_exe, operation]
+        """Build backend command"""
+        # Use configured backend path or fallback to backend name
+        backend_exe = self.backend_path if self.backend_path else self.selected_backend
+        cmd = [backend_exe, operation]
         
         # Add port
         cmd.extend(["-p", self.selected_port.get()])
@@ -583,9 +610,10 @@ class PicProgrammerGUI:
                 self.update_status(self.tr("operation_timeout"))
                 messagebox.showerror(self.tr("error"), self.tr("operation_timeout"))
             except FileNotFoundError:
-                self.log_message("picpro command not found. Please install picpro first.")
-                self.update_status("picpro not found")
-                messagebox.showerror(self.tr("error"), self.tr("picpro_not_found"))
+                backend_name = self.selected_backend
+                self.log_message(f"{backend_name} command not found. Please install {backend_name} first.")
+                self.update_status(f"{backend_name} not found")
+                messagebox.showerror(self.tr("error"), f"{backend_name} command not found.\nPlease install {backend_name} first.")
             except Exception as e:
                 self.log_message(f"Error: {str(e)}")
                 self.update_status("Error occurred")
@@ -695,6 +723,31 @@ class PicProgrammerGUI:
                 
         self.device_detector.auto_detect_programmer(on_detection_complete)
         
+    def auto_detect_backend(self):
+        """Auto-detect best available backend"""
+        picpro_path = self.config.find_picpro_executable()
+        picp_path = self.config.find_picp_executable()
+        
+        if picp_path:
+            # Prefer picp if available
+            self.selected_backend = "picp"
+            self.backend_path = picp_path
+            self.log_message("Auto-detected picp backend")
+        elif picpro_path:
+            # Fallback to picpro
+            self.selected_backend = "picpro"
+            self.backend_path = picpro_path
+            self.log_message("Auto-detected picpro backend")
+        else:
+            # No backend found
+            self.selected_backend = "picpro"  # Default
+            self.backend_path = ""
+            self.log_message("No backend found, using picpro as default")
+            
+        # Update status
+        self.backend_status_var.set(f"Backend: {self.selected_backend}")
+        self.config.set("selected_backend", self.selected_backend)
+        
     def on_device_detection(self, event, data):
         """Handle device detection events"""
         if event == 'detection_started':
@@ -715,6 +768,32 @@ class PicProgrammerGUI:
             self.log_message(f"Ports disconnected: {', '.join(removed_ports)}")
             self.refresh_ports()
             
+    def change_backend(self, backend):
+        """Change backend selection"""
+        self.selected_backend = backend
+        self.config.set("selected_backend", backend)
+        self.backend_path = self.config.get_backend_executable()
+        self.backend_status_var.set(f"Backend: {backend}")
+        
+        # Update chip placement guide with new backend
+        if hasattr(self, 'chip_guide'):
+            self.chip_guide.update_backend(self.backend_path, self.selected_backend)
+        
+        # Log the change
+        self.log_message(f"Backend changed to: {backend}")
+        
+    def test_current_backend(self):
+        """Test current backend"""
+        if not self.backend_path:
+            messagebox.showerror(self.tr("error"), self.tr("backend_not_set"))
+            return
+            
+        is_valid, message = self.config.validate_backend_path(self.backend_path)
+        if is_valid:
+            messagebox.showinfo(self.tr("success"), f"{self.tr('backend_valid')}\n\nBackend: {self.selected_backend}\nPath: {self.backend_path}")
+        else:
+            messagebox.showerror(self.tr("error"), f"{self.tr('backend_invalid')}\n\nError: {message}")
+        
     def change_language(self, language):
         """Change application language"""
         self.tr.set_language(language)
@@ -756,45 +835,80 @@ class PicProgrammerGUI:
         auto_detect_var = tk.BooleanVar(value=self.config.get("auto_detect_programmer", True))
         ttk.Checkbutton(general_frame, text="Auto-detect programmer on startup", variable=auto_detect_var).pack(anchor=tk.W, pady=10)
         
-        # Picpro tab
-        picpro_frame = ttk.Frame(notebook)
-        notebook.add(picpro_frame, text="Picpro")
+        # Backend tab
+        backend_frame = ttk.Frame(notebook)
+        notebook.add(backend_frame, text="Backend")
         
-        # Picpro path setting
-        ttk.Label(picpro_frame, text=self.tr("picpro_path")).pack(anchor=tk.W, pady=(10, 5))
+        # Backend selection
+        ttk.Label(backend_frame, text=self.tr("select_backend")).pack(anchor=tk.W, pady=(10, 5))
         
-        path_frame = ttk.Frame(picpro_frame)
+        backend_selection_frame = ttk.Frame(backend_frame)
+        backend_selection_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.backend_var = tk.StringVar(value=self.config.get("selected_backend", "picpro"))
+        backend_combo = ttk.Combobox(backend_selection_frame, textvariable=self.backend_var, 
+                                   values=["picpro", "picp", "auto"], state="readonly", width=15)
+        backend_combo.pack(side=tk.LEFT, padx=(0, 10))
+        backend_combo.bind('<<ComboboxSelected>>', self.on_backend_change)
+        
+        # Auto-detect option
+        auto_detect_var = tk.BooleanVar(value=self.config.get("backend_auto_detect", True))
+        ttk.Checkbutton(backend_selection_frame, text=self.tr("auto_detect_backend"), variable=auto_detect_var).pack(side=tk.LEFT)
+        
+        # Backend path setting
+        ttk.Label(backend_frame, text=self.tr("backend_path")).pack(anchor=tk.W, pady=(10, 5))
+        
+        path_frame = ttk.Frame(backend_frame)
         path_frame.pack(fill=tk.X, pady=(0, 10))
         
-        self.picpro_path_var = tk.StringVar(value=self.config.get("picpro_path", ""))
-        path_entry = ttk.Entry(path_frame, textvariable=self.picpro_path_var)
+        # Initialize backend path based on selected backend
+        backend = self.backend_var.get()
+        if backend == "picpro":
+            self.backend_path_var = tk.StringVar(value=self.config.get("picpro_path", ""))
+        elif backend == "picp":
+            self.backend_path_var = tk.StringVar(value=self.config.get("picp_path", ""))
+        else:
+            self.backend_path_var = tk.StringVar(value="")
+        path_entry = ttk.Entry(path_frame, textvariable=self.backend_path_var)
         path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         
-        ttk.Button(path_frame, text=self.tr("browse_picpro"), command=self.browse_picpro_path).pack(side=tk.LEFT, padx=5)
-        ttk.Button(path_frame, text=self.tr("test_picpro"), command=self.test_picpro_path).pack(side=tk.LEFT)
+        ttk.Button(path_frame, text=self.tr("browse_backend"), command=self.browse_backend_path).pack(side=tk.LEFT, padx=5)
+        ttk.Button(path_frame, text=self.tr("test_backend"), command=self.test_backend_path).pack(side=tk.LEFT)
         
         # Auto-find option
         auto_find_var = tk.BooleanVar(value=self.config.get("auto_find_picpro", True))
-        ttk.Checkbutton(picpro_frame, text=self.tr("auto_find_picpro"), variable=auto_find_var).pack(anchor=tk.W, pady=5)
+        ttk.Checkbutton(backend_frame, text=self.tr("auto_find_backend"), variable=auto_find_var).pack(anchor=tk.W, pady=5)
         
         # Status label
-        self.picpro_status_var = tk.StringVar()
-        self.update_picpro_status()
-        status_label = ttk.Label(picpro_frame, textvariable=self.picpro_status_var, foreground="blue")
+        self.backend_status_var = tk.StringVar()
+        self.update_backend_status()
+        status_label = ttk.Label(backend_frame, textvariable=self.backend_status_var, foreground="blue")
         status_label.pack(anchor=tk.W, pady=5)
         
         # Save button
         def save_prefs():
             self.config.set("language", lang_var.get())
             self.config.set("auto_detect_programmer", auto_detect_var.get())
-            self.config.set("picpro_path", self.picpro_path_var.get())
-            self.config.set("auto_find_picpro", auto_find_var.get())
+            self.config.set("selected_backend", self.backend_var.get())
+            self.config.set("backend_auto_detect", auto_detect_var.get())
             
-            # Update current picpro path
-            if self.picpro_path_var.get():
-                self.picpro_path = self.picpro_path_var.get()
-            else:
-                self.picpro_path = self.config.find_picpro_executable()
+            # Update backend-specific settings
+            backend = self.backend_var.get()
+            if backend == "picpro":
+                self.config.set("picpro_path", self.backend_path_var.get())
+                self.config.set("auto_find_picpro", auto_find_var.get())
+            elif backend == "picp":
+                self.config.set("picp_path", self.backend_path_var.get())
+                self.config.set("auto_find_picp", auto_find_var.get())
+            
+            # Update current backend path
+            self.selected_backend = backend
+            self.backend_path = self.config.get_backend_executable()
+            self.backend_status_var.set(f"Backend: {backend}")
+            
+            # Update chip placement guide with new backend
+            if hasattr(self, 'chip_guide'):
+                self.chip_guide.update_backend(self.backend_path, self.selected_backend)
                 
             prefs_window.destroy()
             
@@ -807,8 +921,80 @@ class PicProgrammerGUI:
         self.config.set("icsp_enabled", self.icsp_enabled.get())
         self.config.set("window_geometry", self.root.geometry())
         
+    def on_backend_change(self, event=None):
+        """Handle backend selection change"""
+        backend = self.backend_var.get()
+        
+        # Update path variable based on selected backend
+        if backend == "picpro":
+            self.backend_path_var.set(self.config.get("picpro_path", ""))
+        elif backend == "picp":
+            self.backend_path_var.set(self.config.get("picp_path", ""))
+        elif backend == "auto":
+            self.backend_path_var.set("")
+        
+        self.update_backend_status()
+    
+    def browse_backend_path(self):
+        """Browse for backend executable"""
+        filename = filedialog.askopenfilename(
+            title=self.tr("browse_backend"),
+            filetypes=[("Executable files", "*"), ("All files", "*.*")]
+        )
+        if filename:
+            self.backend_path_var.set(filename)
+            self.update_backend_status()
+            
+    def test_backend_path(self):
+        """Test backend executable"""
+        path = self.backend_path_var.get()
+        backend = self.backend_var.get()
+        
+        if not path:
+            if backend == "picpro":
+                path = self.config.find_picpro_executable()
+            elif backend == "picp":
+                path = self.config.find_picp_executable()
+            else:
+                path = self.config.get_backend_executable()
+            
+        if not path:
+            messagebox.showerror(self.tr("error"), self.tr("backend_not_set"))
+            return
+            
+        is_valid, message = self.config.validate_backend_path(path)
+        if is_valid:
+            messagebox.showinfo(self.tr("success"), f"{self.tr('backend_valid')}\n\nPath: {path}")
+        else:
+            messagebox.showerror(self.tr("error"), f"{self.tr('backend_invalid')}\n\nError: {message}")
+            
+        self.update_backend_status()
+        
+    def update_backend_status(self):
+        """Update backend status display"""
+        if hasattr(self, 'backend_status_var'):
+            backend = self.backend_var.get() if hasattr(self, 'backend_var') else self.selected_backend
+            path = self.backend_path_var.get() if hasattr(self, 'backend_path_var') else self.backend_path
+            
+            if not path:
+                if backend == "picpro":
+                    path = self.config.find_picpro_executable()
+                elif backend == "picp":
+                    path = self.config.find_picp_executable()
+                else:
+                    path = self.config.get_backend_executable()
+                
+            if path:
+                is_valid, message = self.config.validate_backend_path(path)
+                if is_valid:
+                    self.backend_status_var.set(f"✓ Valid {backend}: {path}")
+                else:
+                    self.backend_status_var.set(f"✗ Invalid {backend}: {message}")
+            else:
+                self.backend_status_var.set(f"✗ {backend.capitalize()} not found")
+    
     def browse_picpro_path(self):
-        """Browse for picpro executable"""
+        """Browse for picpro executable (legacy)"""
         filename = filedialog.askopenfilename(
             title=self.tr("browse_picpro"),
             filetypes=[("Executable files", "*"), ("All files", "*.*")]
@@ -818,7 +1004,7 @@ class PicProgrammerGUI:
             self.update_picpro_status()
             
     def test_picpro_path(self):
-        """Test picpro executable"""
+        """Test picpro executable (legacy)"""
         path = self.picpro_path_var.get()
         if not path:
             path = self.config.find_picpro_executable()
@@ -836,7 +1022,7 @@ class PicProgrammerGUI:
         self.update_picpro_status()
         
     def update_picpro_status(self):
-        """Update picpro status display"""
+        """Update picpro status display (legacy)"""
         if hasattr(self, 'picpro_status_var'):
             path = self.picpro_path_var.get() if hasattr(self, 'picpro_path_var') else self.picpro_path
             if not path:
@@ -987,18 +1173,18 @@ class PicProgrammerGUI:
                 if hasattr(self, 'pic_combo'):
                     self.pic_combo['values'] = matching_chips[:20]  # Show top 20 matches
                     
-    def check_picpro_version_on_startup(self):
-        """Check picpro version on application startup"""
+    def check_backend_version_on_startup(self):
+        """Check backend version on application startup"""
         def check():
             try:
-                picpro_path = self.config.find_picpro_executable()
-                if picpro_path:
-                    is_valid, message = self.config.validate_picpro_path(picpro_path)
+                backend_path = self.config.get_backend_executable()
+                if backend_path:
+                    is_valid, message = self.config.validate_backend_path(backend_path)
                     
                     # Schedule GUI update in main thread
-                    self.root.after(0, lambda: self.handle_version_check_result(is_valid, message, picpro_path))
+                    self.root.after(0, lambda: self.handle_version_check_result(is_valid, message, backend_path))
                 else:
-                    self.root.after(0, lambda: self.handle_version_check_result(False, "Picpro not found", ""))
+                    self.root.after(0, lambda: self.handle_version_check_result(False, "Backend not found", ""))
             except Exception as e:
                 self.root.after(0, lambda: self.handle_version_check_result(False, f"Version check error: {e}", ""))
                 
@@ -1007,38 +1193,41 @@ class PicProgrammerGUI:
         thread.daemon = True
         thread.start()
         
-    def handle_version_check_result(self, is_valid, message, picpro_path):
+    def handle_version_check_result(self, is_valid, message, backend_path):
         """Handle version check result in main thread"""
         if not is_valid and "version" in message.lower() and "too old" in message.lower():
             # Show version warning dialog
-            self.show_version_warning(message, picpro_path)
-        elif not is_valid and picpro_path:
+            self.show_version_warning(message, backend_path)
+        elif not is_valid and backend_path:
             # Log other validation issues
-            self.log_message(f"Picpro validation: {message}")
+            self.log_message(f"Backend validation: {message}")
             
-    def show_version_warning(self, message, picpro_path):
+    def show_version_warning(self, message, backend_path):
         """Show version warning dialog"""
+        backend_name = self.selected_backend
+        min_version = "0.3.0" if backend_name == "picpro" else "1.0.0"
+        
         warning_msg = (
-            f"⚠️ Picpro Version Warning\n\n"
-            f"Found picpro at: {picpro_path}\n"
+            f"⚠️ {backend_name.capitalize()} Version Warning\n\n"
+            f"Found {backend_name} at: {backend_path}\n"
             f"Issue: {message}\n\n"
-            f"PyK150 requires picpro version 0.3.0 or higher for optimal compatibility.\n"
+            f"PyK150 requires {backend_name} version {min_version} or higher for optimal compatibility.\n"
             f"Some features may not work correctly with older versions.\n\n"
-            f"Please update picpro to the latest version:\n"
-            f"• Visit: https://github.com/Salamek/picpro\n"
-            f"• Or run: pip install --upgrade picpro\n\n"
+            f"Please update {backend_name} to the latest version:\n"
+            f"• Visit: https://github.com/Salamek/{backend_name}\n"
+            f"• Or run: pip install --upgrade {backend_name}\n\n"
             f"Continue anyway?"
         )
         
         result = messagebox.askyesno(
-            "Picpro Version Warning",
+            f"{backend_name.capitalize()} Version Warning",
             warning_msg,
             icon="warning"
         )
         
         if not result:
             # User chose not to continue
-            self.log_message("Application closed due to picpro version incompatibility")
+            self.log_message(f"Application closed due to {backend_name} version incompatibility")
             self.on_closing()
 
     def get_chip_info(self):
@@ -1053,7 +1242,8 @@ class PicProgrammerGUI:
         def run():
             try:
                 self.update_status("Getting chip info...")
-                cmd = ["picpro", "chipinfo", chip_name]
+                backend_exe = self.backend_path if self.backend_path else self.selected_backend
+                cmd = [backend_exe, "chipinfo", chip_name]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 
                 if result.returncode == 0:
@@ -1093,7 +1283,8 @@ class PicProgrammerGUI:
         def run():
             try:
                 self.update_status("Getting HEX info...")
-                cmd = ["picpro", "hexinfo", self.hex_file_path.get(), self.selected_pic_type.get()]
+                backend_exe = self.backend_path if self.backend_path else self.selected_backend
+                cmd = [backend_exe, "hexinfo", self.hex_file_path.get(), self.selected_pic_type.get()]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 
                 if result.returncode == 0:

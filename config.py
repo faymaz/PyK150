@@ -35,7 +35,17 @@ class Config:
                 "/usr/bin/picpro",
                 "~/.local/bin/picpro",
                 "picpro"
-            ]
+            ],
+            "picp_path": "",
+            "auto_find_picp": True,
+            "picp_search_paths": [
+                "/usr/local/bin/picp",
+                "/usr/bin/picp",
+                "~/.local/bin/picp",
+                "picp"
+            ],
+            "selected_backend": "picpro",  # "picpro" or "picp"
+            "backend_auto_detect": True
         }
         
         self.config = self.load_config()
@@ -244,3 +254,174 @@ class Config:
                     continue
                     
         return None
+    
+    def find_picp_executable(self):
+        """Find picp executable automatically"""
+        import shutil
+        import subprocess
+        
+        # First check if user has set a custom path
+        custom_path = self.get("picp_path")
+        if custom_path and os.path.exists(custom_path):
+            return custom_path
+            
+        # If auto-find is disabled, return empty
+        if not self.get("auto_find_picp", True):
+            return ""
+            
+        # Try to find picp using 'which' command
+        try:
+            result = subprocess.run(['which', 'picp'], capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                path = result.stdout.strip()
+                if os.path.exists(path):
+                    return path
+        except:
+            pass
+            
+        # Try using shutil.which
+        try:
+            path = shutil.which('picp')
+            if path and os.path.exists(path):
+                return path
+        except:
+            pass
+            
+        # Try predefined search paths
+        search_paths = self.get("picp_search_paths", [])
+        for path in search_paths:
+            expanded_path = os.path.expanduser(path)
+            if os.path.exists(expanded_path):
+                return expanded_path
+                
+        # Try Python module path
+        try:
+            import picp
+            module_path = os.path.dirname(picp.__file__)
+            potential_paths = [
+                os.path.join(module_path, 'picp'),
+                os.path.join(module_path, '..', 'bin', 'picp'),
+                os.path.join(module_path, '..', 'Scripts', 'picp.exe'),  # Windows
+            ]
+            for path in potential_paths:
+                if os.path.exists(path):
+                    return path
+        except ImportError:
+            pass
+            
+        return ""
+    
+    def validate_picp_path(self, path):
+        """Validate picp executable path and version"""
+        if not path or not os.path.exists(path):
+            return False, "Path does not exist"
+            
+        if not os.access(path, os.X_OK):
+            return False, "File is not executable"
+            
+        try:
+            # Test if it's actually picp by running --help
+            result = subprocess.run([path, "--help"], 
+                                  capture_output=True, 
+                                  text=True, 
+                                  timeout=10)
+            
+            if result.returncode == 0 and "picp" in result.stdout.lower():
+                # Check version
+                version_valid, version_msg = self.check_picp_version(path)
+                if version_valid:
+                    return True, "Valid picp executable"
+                else:
+                    return False, f"Valid picp but {version_msg}"
+            else:
+                return False, "Not a valid picp executable"
+                
+        except subprocess.TimeoutExpired:
+            return False, "Command timed out"
+        except Exception as e:
+            return False, f"Error testing executable: {str(e)}"
+            
+    def check_picp_version(self, path):
+        """Check picp version and validate minimum requirement"""
+        try:
+            # Try to get version with --version flag
+            result = subprocess.run([path, "--version"], 
+                                  capture_output=True, 
+                                  text=True, 
+                                  timeout=10)
+            
+            if result.returncode == 0:
+                version_text = result.stdout.strip()
+                version = self.parse_version(version_text)
+                
+                if version:
+                    min_version = (1, 0, 0)  # Minimum required version 1.0.0
+                    if version >= min_version:
+                        return True, f"Version {'.'.join(map(str, version))} (OK)"
+                    else:
+                        return False, f"version {'.'.join(map(str, version))} is too old (minimum: 1.0.0)"
+                else:
+                    return False, "could not parse version"
+            else:
+                # Try alternative method - check help output for version info
+                help_result = subprocess.run([path, "--help"], 
+                                           capture_output=True, 
+                                           text=True, 
+                                           timeout=10)
+                
+                if help_result.returncode == 0:
+                    version = self.parse_version(help_result.stdout)
+                    if version:
+                        min_version = (1, 0, 0)
+                        if version >= min_version:
+                            return True, f"Version {'.'.join(map(str, version))} (OK)"
+                        else:
+                            return False, f"version {'.'.join(map(str, version))} is too old (minimum: 1.0.0)"
+                
+                # If no version found, assume it's compatible but warn
+                return True, "version unknown (assuming compatible)"
+                
+        except subprocess.TimeoutExpired:
+            return False, "version check timed out"
+        except Exception as e:
+            return False, f"error checking version: {str(e)}"
+    
+    def get_backend_executable(self):
+        """Get the currently selected backend executable path"""
+        backend = self.get("selected_backend", "picpro")
+        
+        if backend == "picpro":
+            return self.find_picpro_executable()
+        elif backend == "picp":
+            return self.find_picp_executable()
+        else:
+            # Auto-detect best available backend
+            picpro_path = self.find_picpro_executable()
+            picp_path = self.find_picp_executable()
+            
+            if picp_path:
+                return picp_path
+            elif picpro_path:
+                return picpro_path
+            else:
+                return ""
+    
+    def validate_backend_path(self, path):
+        """Validate backend executable path"""
+        backend = self.get("selected_backend", "picpro")
+        
+        if backend == "picpro":
+            return self.validate_picpro_path(path)
+        elif backend == "picp":
+            return self.validate_picp_path(path)
+        else:
+            # Try both
+            picpro_valid, picpro_msg = self.validate_picpro_path(path)
+            if picpro_valid:
+                return True, f"Valid picpro: {picpro_msg}"
+            
+            picp_valid, picp_msg = self.validate_picp_path(path)
+            if picp_valid:
+                return True, f"Valid picp: {picp_msg}"
+            
+            return False, f"Not a valid backend: {picpro_msg}, {picp_msg}"
