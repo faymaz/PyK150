@@ -725,24 +725,40 @@ class PicProgrammerGUI:
         
     def auto_detect_backend(self):
         """Auto-detect best available backend"""
-        picpro_path = self.config.find_picpro_executable()
-        picp_path = self.config.find_picp_executable()
+        # Check if user has explicitly selected a backend
+        selected_backend = self.config.get("selected_backend", "picpro")
         
-        if picp_path:
-            # Prefer picp if available
-            self.selected_backend = "picp"
-            self.backend_path = picp_path
-            self.log_message("Auto-detected picp backend")
-        elif picpro_path:
-            # Fallback to picpro
-            self.selected_backend = "picpro"
-            self.backend_path = picpro_path
-            self.log_message("Auto-detected picpro backend")
+        if selected_backend == "auto":
+            # Auto-detect best available backend
+            picpro_path = self.config.find_picpro_executable()
+            picp_path = self.config.find_picp_executable()
+            
+            if picp_path:
+                # Prefer picp if available
+                self.selected_backend = "picp"
+                self.backend_path = picp_path
+                self.log_message("Auto-detected picp backend")
+            elif picpro_path:
+                # Fallback to picpro
+                self.selected_backend = "picpro"
+                self.backend_path = picpro_path
+                self.log_message("Auto-detected picpro backend")
+            else:
+                # No backend found
+                self.selected_backend = "picpro"  # Default
+                self.backend_path = ""
+                self.log_message("No backend found, using picpro as default")
         else:
-            # No backend found
-            self.selected_backend = "picpro"  # Default
-            self.backend_path = ""
-            self.log_message("No backend found, using picpro as default")
+            # Use user-selected backend
+            self.selected_backend = selected_backend
+            if selected_backend == "picpro":
+                self.backend_path = self.config.find_picpro_executable()
+            elif selected_backend == "picp":
+                self.backend_path = self.config.find_picp_executable()
+            else:
+                self.backend_path = ""
+            
+            self.log_message(f"Using selected backend: {self.selected_backend}")
             
         # Update status
         self.backend_status_var.set(f"Backend: {self.selected_backend}")

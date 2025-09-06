@@ -174,13 +174,21 @@ class Config:
                                   text=True, 
                                   timeout=10)
             
-            if result.returncode == 0 and "picpro" in result.stdout.lower():
-                # Check version
-                version_valid, version_msg = self.check_picpro_version(path)
-                if version_valid:
-                    return True, "Valid picpro executable"
+            if result.returncode == 0:
+                # Check if it's picpro by looking for picpro-specific content
+                help_text = result.stdout.lower()
+                is_picpro = ("picpro" in help_text or 
+                           ("program" in help_text and "verify" in help_text and "dump" in help_text and "picp" not in help_text))
+                
+                if is_picpro:
+                    # Check version
+                    version_valid, version_msg = self.check_picpro_version(path)
+                    if version_valid:
+                        return True, "Valid picpro executable"
+                    else:
+                        return False, f"Valid picpro but {version_msg}"
                 else:
-                    return False, f"Valid picpro but {version_msg}"
+                    return False, "Not a valid picpro executable"
             else:
                 return False, "Not a valid picpro executable"
                 
@@ -326,13 +334,21 @@ class Config:
                                   text=True, 
                                   timeout=10)
             
-            if result.returncode == 0 and "picp" in result.stdout.lower():
-                # Check version
-                version_valid, version_msg = self.check_picp_version(path)
-                if version_valid:
-                    return True, "Valid picp executable"
+            if result.returncode == 0:
+                # Check if it's picp by looking for picp-specific content
+                help_text = result.stdout.lower()
+                is_picp = ("picp" in help_text or 
+                          ("program" in help_text and "verify" in help_text and "dump" in help_text and "picpro" not in help_text))
+                
+                if is_picp:
+                    # Check version
+                    version_valid, version_msg = self.check_picp_version(path)
+                    if version_valid:
+                        return True, "Valid picp executable"
+                    else:
+                        return False, f"Valid picp but {version_msg}"
                 else:
-                    return False, f"Valid picp but {version_msg}"
+                    return False, "Not a valid picp executable"
             else:
                 return False, "Not a valid picp executable"
                 
@@ -415,13 +431,27 @@ class Config:
         elif backend == "picp":
             return self.validate_picp_path(path)
         else:
-            # Try both
-            picpro_valid, picpro_msg = self.validate_picpro_path(path)
-            if picpro_valid:
-                return True, f"Valid picpro: {picpro_msg}"
+            # Auto-detect: Try to determine which backend this is based on executable name
+            executable_name = os.path.basename(path).lower()
             
-            picp_valid, picp_msg = self.validate_picp_path(path)
-            if picp_valid:
-                return True, f"Valid picp: {picp_msg}"
-            
-            return False, f"Not a valid backend: {picpro_msg}, {picp_msg}"
+            if "picpro" in executable_name:
+                return self.validate_picpro_path(path)
+            elif "picp" in executable_name:
+                return self.validate_picp_path(path)
+            else:
+                # Try both backends
+                picpro_valid, picpro_msg = self.validate_picpro_path(path)
+                if picpro_valid:
+                    return True, f"Valid picpro: {picpro_msg}"
+                
+                picp_valid, picp_msg = self.validate_picp_path(path)
+                if picp_valid:
+                    return True, f"Valid picp: {picp_msg}"
+                
+                # If neither, return the most specific error
+                if "picpro" in picpro_msg.lower() and "not a valid" not in picpro_msg.lower():
+                    return False, picpro_msg
+                elif "picp" in picp_msg.lower() and "not a valid" not in picp_msg.lower():
+                    return False, picp_msg
+                else:
+                    return False, f"Not a valid backend: {picpro_msg}, {picp_msg}"

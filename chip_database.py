@@ -184,6 +184,7 @@ class ChipDatabase:
         rom_sizes = {
             '16F690': 4096,
             '16F84A': 1024,
+            '16F84': 1024,  # Add PIC16F84
             '16F628A': 2048,
             '16F877A': 8192,
             '12F675': 1024,
@@ -235,13 +236,17 @@ class ChipDatabase:
                     address = int(line[3:7], 16)
                     record_type = int(line[7:9], 16)
                     
-                    # Only count data records (type 00)
+                    # Only count data records (type 00) in program memory area
                     if record_type == 0 and byte_count > 0:
-                        # For PIC, each instruction is 14-bit stored in 2 bytes
-                        # Address is in bytes, convert to words
-                        word_address = address // 2
-                        word_count = byte_count // 2
-                        max_address = max(max_address, word_address + word_count)
+                        # For PIC, program memory typically starts at 0x0000
+                        # Configuration memory is usually at 0x2000+ or 0x4000+
+                        # Only count program memory (typically 0x0000-0x1FFF for 16F84)
+                        if address < 0x2000:  # Program memory area
+                            # For PIC, each instruction is 14-bit stored in 2 bytes
+                            # Address is in bytes, convert to words
+                            word_address = address // 2
+                            word_count = byte_count // 2
+                            max_address = max(max_address, word_address + word_count)
             
             return max_address
             
