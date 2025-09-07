@@ -94,6 +94,22 @@ class ChipDatabase:
                     self.chip_families[family] = []
                 self.chip_families[family].append(chip_name)
                 
+        # Add PIC16F887 manually if not found in database
+        if not any(chip['name'].upper() == '16F887' for chip in self.chips):
+            pic16f887_info = {
+                'name': '16F887',
+                'INCLUDE': 'Y',
+                'ROMSIZE': '001C00',  # 7168 words in hex
+                'FAMILY': 'PIC16F'
+            }
+            self.chips.append(pic16f887_info)
+            
+            # Add to family
+            family = self.get_chip_family('16F887')
+            if family not in self.chip_families:
+                self.chip_families[family] = []
+            self.chip_families[family].append('16F887')
+        
         # Sort chips and families
         self.chips.sort(key=lambda x: x['name'])
         for family in self.chip_families:
