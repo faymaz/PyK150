@@ -334,11 +334,13 @@ class Config:
                                   text=True, 
                                   timeout=10)
             
-            if result.returncode == 0:
+            # picp returns non-zero exit code for help, but still provides help text
+            if result.stdout and len(result.stdout) > 0:
                 # Check if it's picp by looking for picp-specific content
                 help_text = result.stdout.lower()
                 is_picp = ("picp" in help_text or 
-                          ("program" in help_text and "verify" in help_text and "dump" in help_text and "picpro" not in help_text))
+                          ("cosmodog" in help_text or "faymaz" in help_text) or
+                          ("ttyname" in help_text and "devtype" in help_text and "picpro" not in help_text))
                 
                 if is_picp:
                     # Check version

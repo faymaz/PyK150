@@ -539,6 +539,15 @@ class PicProgrammerGUI:
         """Build backend command"""
         # Use configured backend path or fallback to backend name
         backend_exe = self.backend_path if self.backend_path else self.selected_backend
+        
+        # Check if using picp backend (different command format)
+        if "picp" in backend_exe.lower() or self.selected_backend == "picp":
+            return self._build_picp_command(operation, backend_exe)
+        else:
+            return self._build_picpro_command(operation, backend_exe)
+    
+    def _build_picpro_command(self, operation, backend_exe):
+        """Build picpro command"""
         cmd = [backend_exe, operation]
         
         # Add port
@@ -567,6 +576,31 @@ class PicProgrammerGUI:
                 if line and not line.startswith('#') and ':' in line:
                     cmd.extend(["--fuse", line])
                     
+        return cmd
+    
+    def _build_picp_command(self, operation, backend_exe):
+        """Build picp command"""
+        # picp format: picp ttyname devtype [options]
+        cmd = [backend_exe, self.selected_port.get(), self.selected_pic_type.get()]
+        
+        # Add ICSP if enabled
+        if self.icsp_enabled.get():
+            cmd.append("-i")
+        
+        # Add operation-specific parameters
+        if operation == "program":
+            cmd.extend(["-w", "p", self.hex_file_path.get()])
+        elif operation == "verify":
+            cmd.extend(["-b", "p"])  # Blank check program memory
+        elif operation == "erase":
+            cmd.extend(["-e", "f"])  # Erase entire flash
+        elif operation == "dump":
+            # picp format: -r p [filename]
+            if self.output_file_path.get():
+                cmd.extend(["-r", "p", self.output_file_path.get()])
+            else:
+                cmd.extend(["-r", "p"])
+                
         return cmd
         
     def run_command_async(self, cmd, operation):
