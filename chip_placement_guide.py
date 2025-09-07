@@ -96,7 +96,13 @@ class ChipPlacementGuide:
         
         if chip_info:
             self.draw_chip(chip_info)
-            self.info_label.config(text=f"Place {chip_type} with Pin 1 at ZIF Pin 2 position")
+            # Determine ZIF socket based on pin count
+            pins = chip_info.get('pins', 0)
+            if pins >= 40:
+                zif_pin = "ZIF Pin 1"
+            else:
+                zif_pin = "ZIF Pin 2"
+            self.info_label.config(text=f"Place {chip_type} with Pin 1 at {zif_pin} position")
         else:
             self.info_label.config(text=f"Chip guide for {chip_type} not available")
     
@@ -292,15 +298,19 @@ class ChipPlacementGuide:
         self.canvas.create_text(chip_x + chip_width//2, chip_y + chip_height + 15,
                               text=package, fill='cyan', font=('Arial', 8))
         
-        # Pin 1 highlight (first pin on left side, but corresponds to ZIF Pin 2)
+        # Pin 1 highlight (first pin on left side)
         self.canvas.create_oval(chip_x - 12, chip_y + pin_spacing - 6, 
                               chip_x - 4, chip_y + pin_spacing + 2,
                               fill='red', outline='darkred', width=2)
         # Add "Pin 1" label next to the highlight
         self.canvas.create_text(chip_x - 20, chip_y + pin_spacing - 2, text="Pin 1", 
                               fill='red', font=('Arial', 8, 'bold'))
-        # Add ZIF Pin 2 indicator
-        self.canvas.create_text(chip_x - 15, chip_y + pin_spacing + 10, text="ZIF Pin 2", 
+        # Add ZIF pin indicator based on pin count
+        if pins >= 40:
+            zif_pin_text = "ZIF Pin 1"
+        else:
+            zif_pin_text = "ZIF Pin 2"
+        self.canvas.create_text(chip_x - 15, chip_y + pin_spacing + 10, text=zif_pin_text, 
                               fill='cyan', font=('Arial', 7))
         
         # Show pin information if available
@@ -318,10 +328,15 @@ class ChipPlacementGuide:
                 self.pin_info_label.config(text="")
         
         # Placement instructions
+        if pins >= 40:
+            zif_pin_instruction = "3. Chip Pin 1 goes to ZIF Pin 1"
+        else:
+            zif_pin_instruction = "3. Chip Pin 1 goes to ZIF Pin 2"
+        
         instructions = [
             "1. Open ZIF socket lever",
             "2. Insert chip with notch at top", 
-            "3. Chip Pin 1 goes to ZIF Pin 2",
+            zif_pin_instruction,
             "4. Close lever to secure chip"
         ]
         
