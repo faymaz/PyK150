@@ -576,6 +576,7 @@ class PicProgrammerGUI:
             cmd.extend([self.memory_type.get(), "-o", self.output_file_path.get()])
             if self.binary_mode.get():
                 cmd.append("--binary")
+        # Note: erase operation doesn't need -i parameter
                 
         # Add ICSP if enabled
         if self.icsp_enabled.get():
