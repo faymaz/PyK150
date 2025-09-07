@@ -63,6 +63,9 @@ class PicProgrammerGUI:
         self.icsp_enabled = tk.BooleanVar(value=self.config.get("icsp_enabled", False))
         self.binary_mode = tk.BooleanVar()
         
+        # Add callback for PIC type changes to sync with Chip Info tab
+        self.selected_pic_type.trace('w', self.on_pic_type_changed)
+        
         # Auto-detection state
         self.auto_detection_active = False
         
@@ -341,6 +344,16 @@ class PicProgrammerGUI:
         selected_chip = self.info_chip_var.get()
         if selected_chip and hasattr(self, 'chip_guide'):
             self.chip_guide.update_chip_guide(selected_chip)
+    
+    def on_pic_type_changed(self, *args):
+        """Handle PIC type changes in Programming tab - sync with Chip Info tab"""
+        selected_chip = self.selected_pic_type.get()
+        if selected_chip and hasattr(self, 'info_chip_var'):
+            # Update Chip Info tab selection to match Programming tab
+            self.info_chip_var.set(selected_chip)
+            # Also update chip placement guide
+            if hasattr(self, 'chip_guide'):
+                self.chip_guide.update_chip_guide(selected_chip)
         
     def refresh_ports(self):
         """Refresh available serial ports"""
