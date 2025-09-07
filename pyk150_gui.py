@@ -554,7 +554,8 @@ class PicProgrammerGUI:
         backend_exe = self.backend_path if self.backend_path else self.selected_backend
         
         # Check if using picp backend (different command format)
-        if "picp" in backend_exe.lower() or self.selected_backend == "picp":
+        # Use selected_backend as primary indicator, not path analysis
+        if self.selected_backend == "picp":
             return self._build_picp_command(operation, backend_exe)
         else:
             return self._build_picpro_command(operation, backend_exe)
