@@ -187,7 +187,9 @@ class ChipPlacementGuide:
             # 20-pin chips
             '16F690': {'pins': 20, 'package': 'DIP-20'},
             '16F88': {'pins': 20, 'package': 'DIP-20'},
-            '16F887': {'pins': 20, 'package': 'DIP-20'},
+            
+            # 40-pin chips
+            '16F887': {'pins': 40, 'package': 'DIP-40'},
             
             # 28-pin chips
             '16F876A': {'pins': 28, 'package': 'DIP-28'},
@@ -334,6 +336,7 @@ class ChipPlacementGuide:
             '16F84A': "Pin1:VDD | Pin2:RA5 | Pin3:RA4 | Pin4:MCLR | Pin5:VSS | Pin6:RB0 | Pin7:RB1 | Pin8:RB2 | Pin9:RB3 | Pin10:RB4 | Pin11:RB5 | Pin12:RB6 | Pin13:RB7 | Pin14:OSC1 | Pin15:OSC2 | Pin16:VDD | Pin17:RA0 | Pin18:RA1",
             '12F675': "Pin1:VDD | Pin2:GP5 | Pin3:GP4 | Pin4:MCLR | Pin5:GP3 | Pin6:GP2 | Pin7:GP1 | Pin8:VSS",
             '16F628A': "Pin1:VDD | Pin2:RA5 | Pin3:RA4 | Pin4:MCLR | Pin5:VSS | Pin6:RB0 | Pin7:RB1 | Pin8:RB2 | Pin9:RB3 | Pin10:RB4 | Pin11:RB5 | Pin12:RB6 | Pin13:RB7 | Pin14:OSC1 | Pin15:OSC2 | Pin16:VDD | Pin17:RA0 | Pin18:RA1",
+            '16F887': "Pin1:MCLR | Pin2:RA0 | Pin3:RA1 | Pin4:RA2 | Pin5:RA3 | Pin6:RA4 | Pin7:RA5 | Pin8:RE0 | Pin9:RE1 | Pin10:RE2 | Pin11:VDD | Pin12:VSS | Pin13:RA7 | Pin14:RA6 | Pin15:RC0 | Pin16:RC1 | Pin17:RC2 | Pin18:RC3 | Pin19:RD0 | Pin20:RD1 | Pin21:RD2 | Pin22:RD3 | Pin23:RC4 | Pin24:RC5 | Pin25:RC6 | Pin26:RC7 | Pin27:RD4 | Pin28:RD5 | Pin29:RD6 | Pin30:RD7 | Pin31:VSS | Pin32:VDD | Pin33:RB0 | Pin34:RB1 | Pin35:RB2 | Pin36:RB3 | Pin37:RB4 | Pin38:RB5 | Pin39:RB6 | Pin40:RB7",
             '18F2550': "Pin1:VDD | Pin2:RA0 | Pin3:RA1 | Pin4:RA2 | Pin5:RA3 | Pin6:RA4 | Pin7:RA5 | Pin8:VSS | Pin9:RB0 | Pin10:RB1 | Pin11:RB2 | Pin12:RB3 | Pin13:RB4 | Pin14:RB5 | Pin15:RB6 | Pin16:RB7 | Pin17:RC0 | Pin18:RC1 | Pin19:RC2 | Pin20:RC3 | Pin21:RC4 | Pin22:RC5 | Pin23:RC6 | Pin24:RC7 | Pin25:VDD | Pin26:OSC1 | Pin27:OSC2 | Pin28:MCLR | Pin29:VSS | Pin30:RD0 | Pin31:RD1 | Pin32:RD2 | Pin33:RD3 | Pin34:RD4 | Pin35:RD5 | Pin36:RD6 | Pin37:RD7 | Pin38:VDD | Pin39:RE0 | Pin40:RE1"
         }
         
