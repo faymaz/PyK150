@@ -25,6 +25,7 @@ A modern cross-platform GUI for programming PIC microcontrollers using K150 comp
 ```bash
 pip install -r requirements.txt
 python3 install.py
+sudo apt install python3-tk
 ```
 
 ## Usage

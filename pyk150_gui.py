@@ -62,6 +62,7 @@ class PicProgrammerGUI:
         self.selected_pic_type = tk.StringVar(value=self.config.get("last_pic_type", "12F675"))
         self.icsp_enabled = tk.BooleanVar(value=self.config.get("icsp_enabled", False))
         self.binary_mode = tk.BooleanVar()
+        self.erase_mode_var = tk.StringVar(value=self.config.get("erase_mode", "program"))  # "program" or "full"
         
         # Add callback for PIC type changes to sync with Chip Info tab
         self.selected_pic_type.trace('w', self.on_pic_type_changed)
@@ -221,6 +222,19 @@ class PicProgrammerGUI:
         options_frame.pack(fill=tk.X, padx=10, pady=5)
         
         ttk.Checkbutton(options_frame, text=self.tr("enable_icsp"), variable=self.icsp_enabled).pack(anchor=tk.W)
+        
+        # Erase mode selection (only for picp backend)
+        erase_mode_frame = ttk.Frame(options_frame)
+        erase_mode_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Label(erase_mode_frame, text="Erase Mode:").pack(side=tk.LEFT)
+        erase_mode_combo = ttk.Combobox(erase_mode_frame, textvariable=self.erase_mode_var, 
+                                       values=["program", "full"], width=10, state="readonly")
+        erase_mode_combo.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Add tooltip/explanation
+        ttk.Label(erase_mode_frame, text="(program: -ep, full: -ef)", 
+                 foreground="gray").pack(side=tk.LEFT, padx=(5, 0))
         
         # Fuse settings
         fuse_frame = ttk.Frame(options_frame)
@@ -594,7 +608,7 @@ class PicProgrammerGUI:
         return cmd
     
     def _build_picp_command(self, operation, backend_exe):
-        """Build picp command"""
+        """Build picp command for enhanced PICP version"""
         # picp format: picp ttyname devtype [options]
         cmd = [backend_exe, self.selected_port.get(), self.selected_pic_type.get()]
         
@@ -602,19 +616,26 @@ class PicProgrammerGUI:
         if self.icsp_enabled.get():
             cmd.append("-i")
         
-        # Add operation-specific parameters
+        # Add operation-specific parameters for enhanced PICP
         if operation == "program":
-            cmd.extend(["-w", "p", self.hex_file_path.get()])
+            cmd.extend(["-wp", self.hex_file_path.get()])  # Write program memory
         elif operation == "verify":
-            cmd.extend(["-b", "p"])  # Blank check program memory
+            cmd.extend(["-vp", self.hex_file_path.get()])  # Verify program memory
         elif operation == "erase":
-            cmd.extend(["-e", "f"])  # Erase entire flash
-        elif operation == "dump":
-            # picp format: -r p [filename]
-            if self.output_file_path.get():
-                cmd.extend(["-r", "p", self.output_file_path.get()])
+            # Enhanced erase options:
+            # -e  = erase program memory (default)
+            # -ep = erase program memory (explicit) 
+            # -ef = erase full chip (program + data + config)
+            if hasattr(self, 'erase_mode_var') and self.erase_mode_var.get() == "full":
+                cmd.extend(["-ef"])  # Erase full chip
             else:
-                cmd.extend(["-r", "p"])
+                cmd.extend(["-ep"])  # Erase program memory only (safe default)
+        elif operation == "dump":
+            # picp read format: -rp [filename] for program memory
+            if self.output_file_path.get():
+                cmd.extend(["-rp", self.output_file_path.get()])
+            else:
+                cmd.extend(["-rp"])  # Output to stdout
                 
         return cmd
         
@@ -984,6 +1005,7 @@ class PicProgrammerGUI:
         self.config.set("last_port", self.selected_port.get())
         self.config.set("last_pic_type", self.selected_pic_type.get())
         self.config.set("icsp_enabled", self.icsp_enabled.get())
+        self.config.set("erase_mode", self.erase_mode_var.get())
         self.config.set("window_geometry", self.root.geometry())
         
     def on_backend_change(self, event=None):
