@@ -54,7 +54,7 @@ You can select your preferred backend in the Preferences dialog:
 ## Requirements
 
 - Python 3.6+
-- picpro 0.3.0+ OR picp 1.0.0+ (choose one)
+- picpro 0.3.0+ OR picp 0.6.9+ (choose one)
 - pyserial
 
 ## License
