@@ -12,12 +12,14 @@ import json
 import threading
 
 class ChipPlacementGuide:
-    def __init__(self, parent, backend_path=None, selected_backend="picpro"):
+    def __init__(self, parent, backend_path=None, selected_backend="picpro", show_lever=False):
         self.parent = parent
         self.current_chip = None
         self.backend_path = backend_path
         self.selected_backend = selected_backend
         self.chip_pin_info = {}  # Cache for pin information
+        # Visual options
+        self.show_lever = show_lever  # Draw the ZIF lever only if requested
         self.setup_gui()
         
     def setup_gui(self):
@@ -55,11 +57,12 @@ class ChipPlacementGuide:
         self.canvas.create_rectangle(socket_x, socket_y, socket_x + socket_width, socket_y + socket_height,
                                    fill='#404040', outline='#606060', width=2)
         
-        # Socket lever
-        lever_x = socket_x + socket_width + 5
-        lever_y = socket_y + 20
-        self.canvas.create_rectangle(lever_x, lever_y, lever_x + 15, lever_y + 60,
-                                   fill='#808080', outline='#a0a0a0', width=1)
+        # Socket lever (optional)
+        if self.show_lever:
+            lever_x = socket_x + socket_width + 5
+            lever_y = socket_y + 20
+            self.canvas.create_rectangle(lever_x, lever_y, lever_x + 15, lever_y + 60,
+                                       fill='#808080', outline='#a0a0a0', width=1)
         
         # Socket label
         self.canvas.create_text(socket_x + socket_width//2, socket_y - 20, 
