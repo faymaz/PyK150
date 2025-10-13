@@ -18,7 +18,7 @@ A modern cross-platform GUI for programming PIC microcontrollers using K150 comp
 
 - **K150** - Fully tested and supported
 - **K128/K149/K182** - Compatible models
-- Supports both picpro 0.3.0+ and picp 1.0.0+ backends
+- Supports both picpro 0.3.0+ and picp 0.6.9+ backends
 
 ## Installation
 
